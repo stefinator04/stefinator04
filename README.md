@@ -1,3 +1,6 @@
+<p align="center">
+  <img src="Github Banner.gif" width="100%" />
+</p>
 
 
 ### 👋 Hi, I’m Stephanie!
