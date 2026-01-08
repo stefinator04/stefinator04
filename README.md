@@ -2,15 +2,13 @@
   <img src="Github Banner.gif" width="100%" />
 </p>
 
-
-### 👋 Hi, I’m Stephanie!
 ![GitHub followers](https://img.shields.io/github/followers/stefinator04?label=Follow&style=social)
 ![Visits](https://komarev.com/ghpvc/?username=stefinator04&label=Profile%20views&color=0e75b6&style=flat)
 
-🎨 I’m interested in combining programming and art  
-🌱 BA in CS undergrad 
-📫 Reach me: stephanie.sithu@gmail.com  
-⚡ Fun fact: I run a small business!
+- I’m interested in combining programming and art  
+- BA in CS undergrad 
+- Reach me: stephanie.sithu@gmail.com  
+- Fun fact: I run a small business!
 
 
 ### 🔧 Things I Use Regularly
