@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="Github Banner.gif" width="100%" />
+  <img src="Github-banner.gif" width="100%" />
 </p>
 
 ![GitHub followers](https://img.shields.io/github/followers/stefinator04?label=Follow&style=social)
