@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="Github-banner.gif" width="100%" />
-</p>
-
 ![GitHub followers](https://img.shields.io/github/followers/stefinator04?label=Follow&style=social)
 ![Visits](https://komarev.com/ghpvc/?username=stefinator04&label=Profile%20views&color=0e75b6&style=flat)
 
