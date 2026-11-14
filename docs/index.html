@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>steph@github: ~</title>
+<style>
+:root{--bg:#0d0b1e;--page:#0a0918;--bar:#231b47;--line:#3a2f6b;--text:#e9e4ff;--dim:#9d93c9;--teal:#5ee6d0;--pink:#ff7eb6;--yellow:#ffd166;--violet:#c38bff}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--page);color:var(--text);font:15px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace}
+body{display:flex;align-items:center;justify-content:center;padding:16px}
+.term{width:100%;max-width:860px;height:min(640px,calc(100vh - 32px));background:var(--bg);border:1px solid var(--line);border-radius:12px;display:flex;flex-direction:column;overflow:hidden}
+.bar{background:var(--bar);height:34px;display:flex;align-items:center;gap:8px;padding:0 14px;flex:none;position:relative}
+.dot{width:12px;height:12px;border-radius:50%}
+.title{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:12px;pointer-events:none}
+#screen{flex:1;overflow-y:auto;padding:16px 18px 24px;cursor:text}
+#out{white-space:pre-wrap;word-break:break-word}
+.run{color:var(--teal);font-weight:700;text-decoration:underline dotted;cursor:pointer;background:none;border:0;padding:0;font:inherit}
+.run.y{color:var(--yellow)}
+.p{color:var(--teal)}.path{color:var(--violet)}.err{color:var(--pink)}.dim{color:var(--dim)}.hl{color:var(--yellow)}
+.dir{color:var(--violet);font-weight:700}.exe{color:var(--teal);font-weight:700}
+a{color:var(--teal)}
+.inputline{display:flex;align-items:baseline}
+#cmd{flex:1;min-width:0;background:transparent;border:0;outline:0;color:var(--text);font:inherit;padding:0;margin-left:1ch;caret-color:var(--pink)}
+canvas{display:block;width:100%;max-width:780px;border:1px dashed var(--line);border-radius:6px;margin:8px 0 4px;touch-action:manipulation;cursor:pointer}
+@media (max-width:520px){html,body{font-size:13px}#screen{padding:12px}}
+</style>
+</head>
+<body>
+<div class="term" role="application" aria-label="Interactive terminal">
+  <div class="bar">
+    <span class="dot" style="background:#ff6b8b"></span><span class="dot" style="background:#ffd166"></span><span class="dot" style="background:#5ee6d0"></span>
+    <span class="title">steph@github: ~</span>
+  </div>
+  <div id="screen">
+    <div id="out"></div>
+    <div class="inputline" id="line"><span id="prompt"></span><input id="cmd" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Command"></div>
+  </div>
+</div>
+
+<script>
+(() => {
+const GH = 'https://github.com/stefinator04';
+const out = document.getElementById('out');
+const screen = document.getElementById('screen');
+const line = document.getElementById('line');
+const input = document.getElementById('cmd');
+const promptEl = document.getElementById('prompt');
+
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ---------- filesystem ---------- */
+const file = body => ({type:'file', body});
+const link = (url, desc) => ({type:'link', url, desc});
+const root = {type:'dir', c:{
+  'about.txt': file(
+`Hi, I'm <span class="hl">Stephanie</span>.
+First-year M.S. student in Computer Science, cybersecurity focus.
+
+Most of my brain cells currently go to security: competition
+challenges, digging through logs, and figuring out how things
+break so I can help keep them from breaking.
+
+Side quest: sneaking a little art into my code.`),
+  'ncl.txt': file(
+`<span class="hl">National Cyber League — Fall 2026</span>
+
+  Individual   top 26%  (1,532 of 5,959)   95% accuracy, no hints
+  Team         top 15%  (454 of 3,041)     89% accuracy, no hints
+
+  strongest areas: log analysis, OSINT, exploitation & enumeration`),
+  'skills.txt': file(
+`<span class="hl">use regularly</span>   python  c  bash  typescript
+<span class="hl">tinker with</span>     c++  java  c#  html/css  flask  spring boot
+                bootstrap  postgresql  aws  unity
+                splunk  tryhackme  scikit-learn  jupyter`),
+  'projects': {type:'dir', c:{
+    'ultimate-hangman': link(GH + '/Python-Final-Project', 'hangman, but upgraded (python)'),
+    'madlibs-reimagined': link(GH + '/C-CPP-Group-Final-Project', 'madlibs with genres + a word bank (c/c++)'),
+    'board-game-bst': link(GH + '/Data-Structure-Final-Project', 'board games sorted by binary search trees (c++)'),
+    'expense-tracker': link(GH + '/Expense-Tracker-Project', 'full-stack expense tracker (flask, postgresql)'),
+    'README.txt': file('newer projects are on the way. check back soon.')
+  }},
+  'play': {type:'exe'},
+  '.secret': file('nice try 👀  (there is no secret. or is there.)')
+}};
+let cwd = [];
+const pathStr = p => '~' + (p.length ? '/' + p.join('/') : '');
+const resolve = arg => {
+  let parts = arg === undefined || arg === '' ? [...cwd] : arg.startsWith('/') || arg.startsWith('~') ? [] : [...cwd];
+  for (const seg of String(arg || '').replace(/^~\/?/, '').split('/')) {
+    if (!seg || seg === '.') continue;
+    if (seg === '..') parts.pop(); else parts.push(seg);
+  }
+  let node = root;
+  for (const seg of parts) { if (!node || node.type !== 'dir' || !node.c[seg]) return {node:null, parts}; node = node.c[seg]; }
+  return {node, parts};
+};
+
+/* ---------- output ---------- */
+const setPrompt = () => { promptEl.innerHTML = `<span class="p">steph@github</span>:<span class="path">${esc(pathStr(cwd))}</span>$`; };
+const print = (html = '') => { const d = document.createElement('div'); d.innerHTML = html; out.appendChild(d); scrollDown(); return d; };
+const scrollDown = () => { screen.scrollTop = screen.scrollHeight; };
+const fmtName = (name, node) => node.type === 'dir' ? `<span class="dir">${esc(name)}/</span>` : node.type === 'exe' ? `<span class="exe">${esc(name)}*</span>` : node.type === 'link' ? `<a href="${node.url}" target="_blank" rel="noopener">${esc(name)}</a>` : esc(name);
+
+/* ---------- commands ---------- */
+const history = [];
+let hIdx = 0;
+const cmds = {
+  help: () => print(
+`<span class="hl">available commands</span>
+  ls [-a] [dir]   list files          cat &lt;file&gt;     print a file
+  cd &lt;dir&gt;        change directory    pwd             where am i
+  whoami          who is this         open &lt;project&gt;  open a project on github
+  echo &lt;text&gt;     say something       date            what time is it
+  history         past commands       clear           clean the screen
+  <button class="run" data-cmd="./play">./play</button>          you know you want to`),
+  ls: args => {
+    const all = args.includes('-a') || args.includes('-la') || args.includes('-al');
+    const target = args.find(a => !a.startsWith('-'));
+    const {node} = resolve(target);
+    if (!node) return print(`<span class="err">ls: cannot access '${esc(target)}': No such file or directory</span>`);
+    if (node.type !== 'dir') return print(esc(target));
+    const names = Object.keys(node.c).filter(n => all || !n.startsWith('.'));
+    if (node === root.c.projects) {
+      return print(names.map(n => node.c[n].type === 'link' ? `${fmtName(n, node.c[n])}  <span class="dim"># ${esc(node.c[n].desc)}</span>` : fmtName(n, node.c[n])).join('\n'));
+    }
+    print((all ? '<span class="dir">./</span>  <span class="dir">../</span>  ' : '') + names.map(n => fmtName(n, node.c[n])).join('  '));
+  },
+  cd: args => {
+    const {node, parts} = resolve(args[0] || '~');
+    if (!node) return print(`<span class="err">cd: no such file or directory: ${esc(args[0])}</span>`);
+    if (node.type !== 'dir') return print(`<span class="err">cd: not a directory: ${esc(args[0])}</span>`);
+    cwd = parts; setPrompt();
+  },
+  pwd: () => print('/home/steph' + (cwd.length ? '/' + cwd.join('/') : '')),
+  cat: args => {
+    if (!args.length) return print('<span class="err">cat: missing file operand</span>');
+    for (const a of args) {
+      const {node} = resolve(a);
+      if (!node) print(`<span class="err">cat: ${esc(a)}: No such file or directory</span>`);
+      else if (node.type === 'dir') print(`<span class="err">cat: ${esc(a)}: Is a directory</span>`);
+      else if (node.type === 'exe') print('<span class="dim">ELF ⌁⌁⌁ binary gibberish ⌁⌁⌁ (try running it instead: ./play)</span>');
+      else if (node.type === 'link') print(`${esc(node.desc)}\n<a href="${node.url}" target="_blank" rel="noopener">${node.url}</a>`);
+      else print(node.body);
+    }
+  },
+  open: args => {
+    const {node} = resolve(args[0] && !args[0].includes('/') && cwd.at(-1) !== 'projects' ? 'projects/' + args[0] : args[0]);
+    if (!node || node.type !== 'link') return print(`<span class="err">open: ${esc(args[0] || '')}: not a project. try: ls projects</span>`);
+    window.open(node.url, '_blank', 'noopener');
+    print(`<span class="dim">opening ${esc(node.url)} …</span>`);
+  },
+  whoami: () => print('steph — cs grad student, cybersecurity focus, part-time artist'),
+  echo: (args, raw) => print(esc(raw.replace(/^echo\s?/, ''))),
+  date: () => print(new Date().toString()),
+  history: () => print(history.map((h, i) => `  ${String(i + 1).padStart(3)}  ${esc(h)}`).join('\n')),
+  clear: () => { out.innerHTML = ''; },
+  uname: () => print('stephOS 4.0.4-cyber #1 SMP x86_64 GNU/Linux'),
+  hostname: () => print('github'),
+  sudo: () => print('<span class="err">steph is not in the sudoers file. This incident will be reported. 🚨</span>'),
+  rm: args => print(args.join(' ').includes('-rf') ? '<span class="err">nice try. this terminal is read-only (and so is my patience for that).</span>' : '<span class="err">rm: permission denied</span>'),
+  exit: () => print('<span class="dim">there is no escape. (but you can just close the tab)</span>'),
+  vim: () => print('<span class="dim">you are now trapped in vim forever. just kidding. :q</span>'),
+  nano: () => print('<span class="dim">nano? in this economy?</span>'),
+  ping: args => print(`PING ${esc(args[0] || 'github.com')}: 64 bytes, time=0.404 ms <span class="dim">(not real, but it felt nice)</span>`),
+  ssh: () => print('<span class="err">ssh: connect to host: permission denied (publickey)</span>'),
+  man: args => print(args[0] ? `<span class="dim">no manual entry for ${esc(args[0])}. try: help</span>` : 'What manual page do you want?'),
+  ['./play']: () => startGame(),
+};
+cmds.dir = cmds.ls; cmds.ll = a => cmds.ls(['-a', ...a]); cmds.cls = cmds.clear;
+
+const run = raw => {
+  const text = raw.trim();
+  print(`${promptEl.innerHTML} ${esc(raw)}`);
+  if (!text) return;
+  history.push(text); hIdx = history.length;
+  const [name, ...args] = text.split(/\s+/);
+  if (cmds[name]) return cmds[name](args, text);
+  if (name === 'play') return print('<span class="err">command not found: play</span>  <span class="dim">psst, executables in the current dir need ./ in front → ./play</span>');
+  if (/^(\.\/|~\/|\/)?.*play$/.test(name)) {
+    const {node} = resolve(name);
+    if (node && node.type === 'exe') return startGame();
+  }
+  if (name.startsWith('./')) {
+    const {node} = resolve(name);
+    if (node) return print(`<span class="err">${esc(name)}: permission denied</span>`);
+    return print(`<span class="err">${esc(name)}: no such file or directory</span>`);
+  }
+  print(`<span class="err">command not found: ${esc(name)}</span>  <span class="dim">(type help)</span>`);
+};
+
+/* ---------- input ---------- */
+const complete = () => {
+  const val = input.value;
+  const parts = val.split(/\s+/);
+  const last = parts.at(-1);
+  if (parts.length === 1) {
+    const pool = [...Object.keys(cmds)].filter(c => c.startsWith(last));
+    if (pool.length === 1) input.value = pool[0] + ' ';
+    else if (pool.length > 1) print(pool.join('  '));
+    return;
+  }
+  const slash = last.lastIndexOf('/');
+  const dirPart = slash >= 0 ? last.slice(0, slash + 1) : '';
+  const stem = last.slice(slash + 1);
+  const {node} = resolve(dirPart);
+  if (!node || node.type !== 'dir') return;
+  const hits = Object.keys(node.c).filter(n => n.startsWith(stem) && (stem.startsWith('.') || !n.startsWith('.')));
+  if (hits.length === 1) {
+    parts[parts.length - 1] = dirPart + hits[0] + (node.c[hits[0]].type === 'dir' ? '/' : '');
+    input.value = parts.join(' ');
+  } else if (hits.length > 1) print(hits.join('  '));
+};
+input.addEventListener('keydown', e => {
+  if (e.key === 'Enter') { const v = input.value; input.value = ''; run(v); }
+  else if (e.key === 'Tab') { e.preventDefault(); complete(); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); if (hIdx > 0) input.value = history[--hIdx]; }
+  else if (e.key === 'ArrowDown') { e.preventDefault(); hIdx = Math.min(history.length, hIdx + 1); input.value = history[hIdx] || ''; }
+  else if (e.key === 'l' && e.ctrlKey) { e.preventDefault(); out.innerHTML = ''; }
+});
+screen.addEventListener('click', () => { if (!gameOn && !getSelection().toString()) input.focus(); });
+
+/* ---------- the game ---------- */
+let gameOn = false;
+const store = {
+  get(){ try { return +localStorage.getItem('steph-hi') || 0; } catch { return 0; } },
+  set(v){ try { localStorage.setItem('steph-hi', v); } catch {} }
+};
+// original pixel cat, facing right. x = body, . = empty
+const CAT = {
+  head: [
+    "...x.....x..",
+    "...xx...xx..",
+    "...xxxxxxx..",
+    "x..x.xxx.x..",
+    "x..xxxxxxx..",
+    "x...xxxxx...",
+    "xxxxxxxxxx..",
+    ".xxxxxxxxx.."],
+  a: [".x.x...x.x..", ".x.....x...."],
+  b: ["..x.x...x.x.", "....x.....x."],
+  air: [".xx....xx...", "............"]
+};
+function startGame() {
+  gameOn = true;
+  line.style.display = 'none';
+  const bootLine = print('<span class="dim">booting play… space / ↑ / tap to jump · q or esc to quit · </span><button class="run" data-quit>quit</button>');
+  const W = 600, H = 160, P = 3, GROUND = 134;
+  const wrap = print('');
+  const cv = document.createElement('canvas');
+  const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+  cv.width = W * dpr; cv.height = H * dpr;
+  cv.style.aspectRatio = `${W} / ${H}`;
+  wrap.appendChild(cv);
+  const ctx = cv.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.imageSmoothingEnabled = false;
+  scrollDown();
+
+  const C = { bg:'#0d0b1e', cat:'#ff7eb6', wall:'#c38bff', mortar:'#0d0b1e', ground:'#3a2f6b', star:'#2a2350', text:'#e9e4ff', dim:'#9d93c9', teal:'#5ee6d0', yellow:'#ffd166' };
+  const catW = 12 * P, catH = 10 * P;
+  let y, vy, obstacles, speed, score, spawnIn, frame, dead, hi = store.get(), last, raf, groundOff;
+  const stars = Array.from({length:22}, () => ({x:Math.random()*W, y:Math.random()*(GROUND-40), s:Math.random()<.3?2:1}));
+
+  const reset = () => { y = GROUND - catH; vy = 0; obstacles = []; speed = 5; score = 0; spawnIn = 50; frame = 0; dead = false; groundOff = 0; last = performance.now(); };
+  const jump = () => {
+    if (dead) { reset(); loop(performance.now()); return; }
+    if (y >= GROUND - catH - 0.5) vy = -10.4;
+  };
+  const drawSprite = (rows, ox, oy, color) => {
+    ctx.fillStyle = color;
+    rows.forEach((r, j) => [...r].forEach((ch, i) => { if (ch === 'x') ctx.fillRect(Math.round(ox + i * P), Math.round(oy + j * P), P, P); }));
+  };
+  const drawWall = o => {
+    ctx.fillStyle = C.wall; ctx.fillRect(o.x, GROUND - o.h, o.w, o.h);
+    ctx.fillStyle = C.mortar;
+    for (let r = 0; r * 9 < o.h; r++) {
+      const yy = GROUND - o.h + r * 9;
+      ctx.fillRect(o.x, yy, o.w, 2);
+      for (let xx = (r % 2 ? 6 : 0); xx < o.w; xx += 12) ctx.fillRect(o.x + xx, yy, 2, 9);
+    }
+    ctx.fillStyle = C.yellow; // little flame on top: it's a fire-wall
+    ctx.fillRect(o.x + o.w/2 - 3, GROUND - o.h - 6, 6, 6);
+    ctx.fillRect(o.x + o.w/2 - 1, GROUND - o.h - 9, 2, 3);
+  };
+  const draw = () => {
+    ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = C.star; stars.forEach(s => ctx.fillRect(Math.round(s.x), s.y, s.s*2, s.s*2));
+    ctx.fillStyle = C.ground; ctx.fillRect(0, GROUND, W, 2);
+    for (let x = -groundOff % 30; x < W; x += 30) ctx.fillRect(x, GROUND + 8, 10, 2);
+    obstacles.forEach(drawWall);
+    const onGround = y >= GROUND - catH - 0.5;
+    const legs = dead ? CAT.a : !onGround ? CAT.air : (Math.floor(frame / 6) % 2 ? CAT.a : CAT.b);
+    drawSprite([...CAT.head, ...legs], 40, y, C.cat);
+    ctx.fillStyle = C.text; ctx.font = '12px ui-monospace, Menlo, Consolas, monospace'; ctx.textAlign = 'right';
+    ctx.fillText(`HI ${String(hi).padStart(5,'0')}   ${String(Math.floor(score)).padStart(5,'0')}`, W - 12, 20);
+    if (dead) {
+      ctx.textAlign = 'center';
+      ctx.fillStyle = C.yellow; ctx.font = 'bold 15px ui-monospace, Menlo, Consolas, monospace';
+      ctx.fillText('Segmentation fault (core dumped)', W/2, 62);
+      ctx.fillStyle = C.dim; ctx.font = '12px ui-monospace, Menlo, Consolas, monospace';
+      ctx.fillText('space / tap to retry  ·  q to quit', W/2, 84);
+    }
+  };
+  const step = dt => {
+    frame += dt;
+    speed = Math.min(13, speed + 0.0016 * dt);
+    const dx = speed * dt;
+    groundOff += dx;
+    stars.forEach(s => { s.x -= dx * 0.08 * s.s; if (s.x < -4) s.x = W + 4; });
+    vy += 0.62 * dt; y = Math.min(GROUND - catH, y + vy * dt);
+    if (y >= GROUND - catH) vy = 0;
+    obstacles.forEach(o => o.x -= dx);
+    obstacles = obstacles.filter(o => o.x + o.w > -10);
+    if ((spawnIn -= dt) <= 0) {
+      const w = [16, 28, 40][Math.floor(Math.random() * (score > 150 ? 3 : 2))];
+      const h = [24, 30, 36][Math.floor(Math.random() * 3)];
+      obstacles.push({x: W + 10, w, h});
+      spawnIn = 42 + Math.random() * 60 + 160 / speed;
+    }
+    score += dx * 0.08;
+    const cx = 40 + 6, cy = y + 4, cw = catW - 14, ch = catH - 6;
+    for (const o of obstacles) {
+      if (cx < o.x + o.w - 2 && cx + cw > o.x + 2 && cy + ch > GROUND - o.h + 2) {
+        dead = true;
+        if (Math.floor(score) > hi) { hi = Math.floor(score); store.set(hi); }
+      }
+    }
+  };
+  const loop = now => {
+    const dt = Math.min(3, (now - last) / (1000/60)); last = now;
+    if (!dead) step(dt);
+    draw();
+    if (!dead && gameOn) raf = requestAnimationFrame(loop);
+  };
+  const quit = () => {
+    cancelAnimationFrame(raf);
+    gameOn = false; dead = true; draw();
+    removeEventListener('keydown', onKey, true);
+    cv.removeEventListener('pointerdown', onTap);
+    cv.style.cursor = 'default';
+    print(`play exited with score ${Math.floor(score)} <span class="dim">(high score: ${hi})</span>`);
+    line.style.display = '';
+    input.focus(); scrollDown();
+  };
+  const onKey = e => {
+    if ([' ', 'ArrowUp', 'w', 'Enter'].includes(e.key)) { e.preventDefault(); jump(); }
+    else if (e.key === 'q' || e.key === 'Escape' || (e.key === 'c' && e.ctrlKey)) { e.preventDefault(); if (e.ctrlKey) print('^C'); quit(); }
+  };
+  const onTap = e => { e.preventDefault(); jump(); };
+  addEventListener('keydown', onKey, true);
+  bootLine.querySelector('[data-quit]').addEventListener('click', e => { e.stopPropagation(); if (gameOn) quit(); }, {once:true});
+  cv.addEventListener('pointerdown', onTap);
+  input.blur();
+  reset();
+  raf = requestAnimationFrame(t => { last = t; loop(t); });
+}
+
+/* ---------- boot ---------- */
+setPrompt();
+print(`<span class="dim">stephOS 4.0.4 · last login: just now</span>
+Welcome! This is a real (tiny) terminal. Type <button class="run y" data-cmd="help">help</button> to look around,
+or run <button class="run" data-cmd="./play">./play</button> if you're just here for the game.
+`);
+out.addEventListener('click', e => {
+  const b = e.target.closest('[data-cmd]');
+  if (b && !gameOn) { e.stopPropagation(); run(b.dataset.cmd); }
+});
+input.focus();
+})();
+</script>
+</body>
+</html>
