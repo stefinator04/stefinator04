@@ -4,6 +4,12 @@
   </a>
 </p>
 
+<p align="center">
+  <a href="https://stefinator04.github.io/stefinator04/">
+    <img src="./assets/play-demo.gif" alt="Gameplay preview: a pixel cat jumping over firewalls" width="600">
+  </a>
+</p>
+
 <p align="center"><sub>⌨️ That terminal actually works. <a href="https://stefinator04.github.io/stefinator04/">Click it</a>, poke around, then run <code>./play</code>.</sub></p>
 
 ## 👋 Hi, I'm Stephanie
