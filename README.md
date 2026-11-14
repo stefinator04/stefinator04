@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://stefinator04.github.io/stefinator04/">
-    <img src="./assets/banner.gif?v=2" alt="Terminal: whoami, Stephanie, then ./play running a pixel cat game. Click to open the interactive terminal." width="100%">
+    <img src="./assets/banner.gif?v=3" alt="Terminal: whoami, Stephanie, then ./play running a pixel cat game. Click to open the interactive terminal." width="100%">
   </a>
 </p>
 
