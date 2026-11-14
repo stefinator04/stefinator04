@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300" width="1000" height="300" role="img" aria-label="Terminal: whoami, Stephanie. Run ./play to play a game.">
+  <style>.m{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace}</style>
+  <rect x="1" y="1" width="998" height="298" rx="14" fill="#0d0b1e" stroke="#3a2f6b" stroke-width="2"/>
+  <path d="M1 15 a14 14 0 0 1 14 -14 H985 a14 14 0 0 1 14 14 V38 H1 Z" fill="#231b47"/>
+  <circle cx="26" cy="20" r="6.5" fill="#ff6b8b"/>
+  <circle cx="48" cy="20" r="6.5" fill="#ffd166"/>
+  <circle cx="70" cy="20" r="6.5" fill="#5ee6d0"/>
+  <text x="500" y="25" text-anchor="middle" class="m" font-size="14" fill="#9d93c9">steph@github: ~</text>
+
+  <g class="m" font-size="19" xml:space="preserve">
+    <text x="32" y="80"><tspan fill="#5ee6d0">steph@github</tspan><tspan fill="#e9e4ff">:</tspan><tspan fill="#c38bff">~</tspan><tspan fill="#e9e4ff">$ whoami</tspan></text>
+    <text x="32" y="122" font-size="34" font-weight="700" fill="#ffffff">Stephanie</text>
+    <text x="32" y="152" fill="#9d93c9">cs grad student · cybersecurity focus · part-time artist</text>
+
+    <text x="32" y="196"><tspan fill="#5ee6d0">steph@github</tspan><tspan fill="#e9e4ff">:</tspan><tspan fill="#c38bff">~</tspan><tspan fill="#e9e4ff">$ ls</tspan></text>
+    <text y="226" fill="#e9e4ff"><tspan x="32">about.txt</tspan><tspan x="170">ncl.txt</tspan><tspan x="286">skills.txt</tspan><tspan x="434" fill="#c38bff" font-weight="700">projects/</tspan><tspan x="572" fill="#5ee6d0" font-weight="700">play*</tspan></text>
+
+    <text x="32" y="270"><tspan fill="#5ee6d0">steph@github</tspan><tspan fill="#e9e4ff">:</tspan><tspan fill="#c38bff">~</tspan><tspan fill="#e9e4ff">$ ./play</tspan><tspan fill="#ff7eb6">█</tspan><tspan fill="#9d93c9" dx="22"># click to open the terminal</tspan></text>
+  </g>
+</svg>
